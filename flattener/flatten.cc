@@ -11,20 +11,18 @@ using namespace std;
 
 namespace sorbet::flatten {
 
-// return true if the expression in question is either a method definition, a class definition, or an assignment to a
-// constant; false otherwise.
-bool isDefinition(core::Context ctx, const unique_ptr<ast::Expression> &what) {
+bool shouldExtract(core::Context ctx, const unique_ptr<ast::Expression> &what) {
     if (ast::isa_tree<ast::ClassDef>(what.get())) {
-        return true;
+        return false;
     }
     if (ast::isa_tree<ast::EmptyTree>(what.get())) {
-        return true;
+        return false;
     }
 
     if (auto asgn = ast::cast_tree<ast::Assign>(what.get())) {
-        return ast::isa_tree<ast::UnresolvedConstantLit>(asgn->lhs.get());
+        return !ast::isa_tree<ast::UnresolvedConstantLit>(asgn->lhs.get());
     }
-    return false;
+    return true;
 }
 
 // pull all the non-definitions (i.e. anything that's not a method definition, a class definition, or a constant
@@ -34,7 +32,7 @@ unique_ptr<ast::Expression> extractClassInit(core::Context ctx, unique_ptr<ast::
     ast::InsSeq::STATS_store inits;
 
     for (auto it = klass->rhs.begin(); it != klass->rhs.end(); /* nothing */) {
-        if (isDefinition(ctx, *it)) {
+        if (!shouldExtract(ctx, *it)) {
             ++it;
             continue;
         }
